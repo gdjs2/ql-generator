@@ -1,0 +1,3 @@
+[submodule "ql-generator-qls"]
+	path = ql-generator-qls
+	url = git@github.com:gdjs2/ql-generator-qls.git
