@@ -1,15 +1,11 @@
-mod constant;
-mod engine;
-mod extractor;
 
-use std::{fs, path::Path};
+use std::{fs, path::{Path, PathBuf}};
 use constant::*;
+use extractor::{CodeQLExtractor, Extractor};
 
 fn main() {
+    let database_path_str = "/home/gdjs2/Desktop/codeql-project/codeql-databases/sample_code/simple_database";
+    let ql_ext = CodeQLExtractor::new(database_path_str.to_string());
 
-    let allocator = Path::new(PATTERN_PATH).join(ALLOCATOR_FILE);
-    let content = fs::read_to_string(&allocator)
-                             .expect(format!("Cannot open pattern file {:?}", &allocator).as_str());
-    
-    println!("{}", content);
+    ql_ext.extract_funcs();
 }
