@@ -18,8 +18,14 @@ impl CodeQLExtractor {
 		Self { database_pathbuf }
 	}
 
-	pub fn exec_ql(&self, ) {
-
+	pub fn exec_ql(&self, ql: &Path, res: &Path) {
+		let mut cmd = Command::new(constant::CODEQL_BIN);
+			
+		let _opt = cmd.args(["query", "run"])
+			.args([ql.to_str().expect(format!("The path of ql {:?} is not valid", ql).as_str())])
+			.args(["-o", res.to_str().expect(format!("The path of result {:?} is not valid", res).as_str())])
+			.args(["-d", self.database_pathbuf.to_str().expect(format!("The database path {:?} is not valid", self.database_pathbuf).as_str())])
+			.output();
 	}
 
 	pub fn exec_select_ql(&self) {
@@ -38,7 +44,7 @@ impl CodeQLExtractor {
 					.join(constant::WORK_DIR)
 					.join(constant::SELECT_FUN_RESULT_BQRS);
 
-		let output = 
+		let _output = 
 			Command::new("codeql")
 			.args([
 				"query", 
