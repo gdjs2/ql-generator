@@ -19,3 +19,5 @@ Cargo.lock
 /target
 
 /tmp
+
+/.work_dir
