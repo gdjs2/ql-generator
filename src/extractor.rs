@@ -1,15 +1,51 @@
-use std::{path::{PathBuf, Path}, process::Command, fs::{self, create_dir}};
+use std::{path::{PathBuf, Path}, process::Command, fs::{self, create_dir}, fmt::Debug, str::FromStr};
 
-use crate::constant::{self, WORK_DIR};
+use serde::{Deserialize, Serialize};
+use serde_json::{Value, Number};
+use url::Url;
 
+use crate::constant::{self, WORK_DIR, SELECT_FUN_RESULT_JSON};
+
+/**
+This is front end of the whole engine, which is reponsible
+for extracting all the functions.
+ */
 pub trait Extractor {
+	/**
+	 * Extract all the functions.
+	 */
 	fn extract_funcs(&self) -> Vec<String> {
 		vec![String::from("int main() {}")]
 	}
 }
 
+/**
+ This is an implementation of Extractor, which uses CodeQL.
+ The input should be a valid CodeQL database.
+ */
 pub struct CodeQLExtractor {
 	database_pathbuf: PathBuf
+}
+
+#[derive(Debug)]
+struct Func {
+	pub ret_type: String,
+	pub name: String,
+	pub parameters: String,
+	pub url: BlockUrl
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct BlockUrl {
+	uri: String,
+	#[serde(alias = "startLine")]
+	start_line: Number,
+	#[serde(alias = "startColumn")]
+	start_column: Number,
+	#[serde(alias = "endLine")]
+	end_line: Number,
+	#[serde(alias = "endColumn")]
+	end_column: Number
 }
 
 impl CodeQLExtractor {
@@ -18,17 +54,22 @@ impl CodeQLExtractor {
 		Self { database_pathbuf }
 	}
 
-	pub fn exec_ql(&self, ql: &Path, res: &Path) {
+	fn exec_ql(&self, ql: &Path, res: &Path) {
+
 		let mut cmd = Command::new(constant::CODEQL_BIN);
 			
 		let _opt = cmd.args(["query", "run"])
-			.args([ql.to_str().expect(format!("The path of ql {:?} is not valid", ql).as_str())])
+			.arg(ql.to_str().expect(format!("The path of ql {:?} is not valid", ql).as_str()))
 			.args(["-o", res.to_str().expect(format!("The path of result {:?} is not valid", res).as_str())])
 			.args(["-d", self.database_pathbuf.to_str().expect(format!("The database path {:?} is not valid", self.database_pathbuf).as_str())])
 			.output();
+
+		log::debug!("Execute CodeQL Command: {:?}", cmd);
+
 	}
 
-	pub fn exec_select_ql(&self) {
+	fn exec_select_ql(&self) -> PathBuf{
+
 		let select_func_ql = 
 			PathBuf::new()
 					.join(constant::QLS_PATH)
@@ -44,32 +85,114 @@ impl CodeQLExtractor {
 					.join(constant::WORK_DIR)
 					.join(constant::SELECT_FUN_RESULT_BQRS);
 
-		let _output = 
-			Command::new("codeql")
-			.args([
-				"query", 
-				"run", 
-				select_func_ql.to_str().expect("The select ql path string is not valid"), 
-				"-o", 
-				select_result.to_str().expect("The select store path string is not valid"),
-				"-d",
-				self.database_pathbuf.to_str().expect("The database path is not a valid string")])
+		self.exec_ql(select_func_ql.as_path(), select_result.as_path());
+
+		return select_result;
+
+	}
+
+	fn convert_bqrs2json(bqrs_path: &Path, json_path: &Path) {
+
+		let mut cmd = Command::new(constant::CODEQL_BIN);
+
+		let _opt = cmd.args(["bqrs", "decode"])
+			.arg(bqrs_path.to_str().expect("The path of result database is not valid"))
+			.args(["-o", json_path.to_str().expect("The path of result json is not valid")])
+			.args(["--format=json", "--entities=url"])
 			.output();
+
+		log::debug!("Execute CodeQL Command: {:?}", cmd);
+
 	}
 
-	pub fn convert_bqrs2json(bqrs_path: &Path, json_path: &Path) {
+	fn parse_result_json(json_path: &Path) -> Vec<Func> {
+
+		let mut ret = Vec::new();
+
+		let json_txt = fs::read_to_string(json_path).unwrap();
+		log::debug!("{:?} file: {}", json_path, json_txt);
+
+		let parsed_json: Value = serde_json::from_str(&json_txt).unwrap();
+		let tuples_value = &parsed_json["#select"]["tuples"];
+
+		for tuple in tuples_value.as_array().unwrap() {
+			ret.push(Func {
+				ret_type: serde_json::from_value(tuple[0].clone()).unwrap(),
+				name: serde_json::from_value(tuple[1].clone()).unwrap(),
+				parameters: serde_json::from_value(tuple[2].clone()).unwrap(),
+				url: serde_json::from_value(tuple[3]["url"].clone()).unwrap()
+			});
+		}
+
+		log::debug!("parsed json: {:?}", ret);
+
+		return ret;
 
 	}
+
+	fn get_fn(f: &Func) -> Option<String> {
+
+		let parsed_url = Url::parse(&f.url.uri).unwrap();
+		log::debug!("get_fn: {}, {}", parsed_url.scheme(), parsed_url.path());
+
+		if parsed_url.path() == "/" {
+			return None
+		}
+
+		let file_txt = fs::read_to_string(parsed_url.path()).unwrap();
+		let file_txt_dup = file_txt.clone();
+
+		let split = file_txt_dup.split("\n");
+		let mut start_idx = 0;
+		let mut end_index = 0;
+		for l in 0..f.url.start_line.as_u64().unwrap()-1 {
+			start_idx += split.clone().nth(usize::try_from(l).unwrap()).unwrap().len()+1;
+		}
+		start_idx += usize::try_from(f.url.start_column.as_u64().unwrap()).unwrap();
+		log::debug!("start_idx: {}", start_idx);
+
+		for l in 0..f.url.end_line.as_u64().unwrap()-1 {
+			end_index += split.clone().nth(usize::try_from(l).unwrap()).unwrap().len()+1;
+		}
+		end_index += usize::try_from(f.url.end_column.as_u64().unwrap()).unwrap();
+
+		log::debug!("function: {}", &file_txt[start_idx..end_index-1]);
+		Some(String::from_str(&file_txt[start_idx..end_index-1]).unwrap())
+
+	}
+
+	fn get_funcs(v: Vec<Func>) -> Vec<String> {
+		let mut ret = Vec::new();
+
+		for f in &v {
+			let func_txt = CodeQLExtractor::get_fn(f);
+			if func_txt.is_none() {
+				continue;
+			}
+			ret.push(Self::format_func(f, func_txt.unwrap()));
+		}
+
+		ret
+	}
+
+	fn format_func(f: &Func, b: String) -> String {
+		return format!("{} {} ({}) {{\n{}}}\n", f.ret_type, f.name, f.parameters, b);
+	}
+
 }
 
 impl Extractor for CodeQLExtractor {
 	fn extract_funcs(&self) -> Vec<String> {
-		let mut ret = Vec::new();
 
-		self.exec_select_ql();
+		let bqrs_path = self.exec_select_ql();
+		let json_path = Path::new(WORK_DIR).join(SELECT_FUN_RESULT_JSON);
+		CodeQLExtractor::convert_bqrs2json(bqrs_path.as_path(), json_path.as_path());
+	
+		let parsed = CodeQLExtractor::parse_result_json(json_path.as_path());
 
-		ret.push("int main() {}".to_string());
+		let ret = CodeQLExtractor::get_funcs(parsed);
+		log::debug!("Extracted functions: {:?}", ret);
+
 		return ret;
-
 	}
 }

@@ -10,4 +10,5 @@ pub const CODEQL_BIN: &str = "/usr/local/bin/codeql";
 pub const WORK_DIR: &str = "./.work_dir";
 
 pub const SELECT_FUN_RESULT_BQRS: &str = "./select_func.bqrs";
+pub const SELECT_FUN_RESULT_JSON: &str = "./select_func.json";
 
