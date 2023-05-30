@@ -1,6 +1,6 @@
-use std::{fs, path::{Path, PathBuf}, str::FromStr};
+use std::str::FromStr;
 
-use ql_generator::{extractor::{CodeQLExtractor, Extractor}, constant::{WORK_DIR, SELECT_FUN_RESULT_JSON}};
+use ql_generator::extractor::{CodeQLExtractor, Extractor};
 
 fn main() {
 
