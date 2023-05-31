@@ -1,4 +1,4 @@
-use std::{path::{PathBuf, Path}, process::Command, fs::{self, create_dir}, fmt::Debug, str::FromStr};
+use std::{path::{PathBuf, Path}, process::{Command, Output}, fs::{self, create_dir}, fmt::Debug, str::FromStr};
 
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, Number};
@@ -27,6 +27,9 @@ pub struct CodeQLExtractor {
 	database_pathbuf: PathBuf
 }
 
+/**
+ Function query result for CodeQL
+ */
 #[derive(Debug)]
 struct Func {
 	pub ret_type: String,
@@ -35,6 +38,16 @@ struct Func {
 	pub url: BlockUrl
 }
 
+/**
+ This is the url segment in the CodeQL query result, recording
+ the position of the functions.
+
+* uri: File URI  
+* start_line: The start line of the function block
+* start_column: The start column of the function block
+* end_line: The end line of the function block
+* end_column: The end column of the function block
+ */
 #[derive(Serialize, Deserialize, Debug)]
 struct BlockUrl {
 	uri: String,
@@ -48,13 +61,35 @@ struct BlockUrl {
 	end_column: Number
 }
 
+/**
+ This is the implementation for CodeQL Extractor, which includes
+ several key functions for CodeQL functionality.
+ */
 impl CodeQLExtractor {
+
+	/**
+	 Create a new CodeQL Extractor.
+
+	 * database_path_str: a String specify the path of the CodeQL database
+
+	 */
 	pub fn new(database_path_str: String) -> Self {
 		let database_pathbuf = PathBuf::new().join(database_path_str);
 		Self { database_pathbuf }
 	}
 
-	fn exec_ql(&self, ql: &Path, res: &Path) {
+	/**
+	 Execute a ql file
+
+	 * ql: The path to the to-be-executed ql
+	 * res: The path to the result bqrs file
+
+	 * return: [`Result`]<[`Output`], [`std::io::Error`]>, which is a result
+	 wrapper of Output and Error. This is the execution result of the CodeQL
+	 command.
+
+	 */
+	fn exec_ql(&self, ql: &Path, res: &Path) -> Result<Output, std::io::Error>{
 
 		let mut cmd = Command::new(constant::CODEQL_BIN);
 			
@@ -65,10 +100,16 @@ impl CodeQLExtractor {
 			.output();
 
 		log::debug!("Execute CodeQL Command: {:?}", cmd);
+		return _opt;
 
 	}
 
-	fn exec_select_ql(&self) -> PathBuf{
+	/**
+	 Execute the ql file for selecting all the functions.
+
+	 * return: A [`PathBuf`] to the result bqrs file
+	 */
+	fn exec_select_ql(&self) -> PathBuf {
 
 		let select_func_ql = 
 			PathBuf::new()
@@ -85,12 +126,25 @@ impl CodeQLExtractor {
 					.join(constant::WORK_DIR)
 					.join(constant::SELECT_FUN_RESULT_BQRS);
 
-		self.exec_ql(select_func_ql.as_path(), select_result.as_path());
+		let opt = self.exec_ql(select_func_ql.as_path(), select_result.as_path());
+		if let Ok(o) = opt {
+			log::debug!("Execute ql file stdout: {}", String::from_utf8(o.stdout).unwrap());
+			log::debug!("Execute ql file stderr: {}", String::from_utf8(o.stderr).unwrap());
+		} else {
+			opt.unwrap();
+		}
 
 		return select_result;
 
 	}
 
+	/**
+	 Convert bqrs result to json result.
+
+	 * bqrs_path: [`Path`] to bqrs result file
+	 * json_path: [`Path`] to to-stored json file
+
+	 */
 	fn convert_bqrs2json(bqrs_path: &Path, json_path: &Path) {
 
 		let mut cmd = Command::new(constant::CODEQL_BIN);
@@ -105,12 +159,17 @@ impl CodeQLExtractor {
 
 	}
 
+	/**
+	 Parse the json result file to [`Vec`] of [`Func`]
+
+	 * return: [`Vec`]<[`Func`]>, which is metadata for all the functions
+	 */
 	fn parse_result_json(json_path: &Path) -> Vec<Func> {
 
 		let mut ret = Vec::new();
 
 		let json_txt = fs::read_to_string(json_path).unwrap();
-		log::debug!("{:?} file: {}", json_path, json_txt);
+		log::debug!("Read {:?} file: {}", json_path, json_txt);
 
 		let parsed_json: Value = serde_json::from_str(&json_txt).unwrap();
 		let tuples_value = &parsed_json["#select"]["tuples"];
@@ -130,6 +189,14 @@ impl CodeQLExtractor {
 
 	}
 
+	/**
+	 Get single function including declaration and body by
+	 a matadata.
+
+	 * f: [`Func`], function metadata got from CodeQL query result
+	 * return: [`Option`]<[`String`]>, the function body
+	 	* [`None`]: if the source file cannot find, i.e., "/"
+	 */
 	fn get_fn(f: &Func) -> Option<String> {
 
 		let parsed_url = Url::parse(&f.url.uri).unwrap();
@@ -149,18 +216,26 @@ impl CodeQLExtractor {
 			start_idx += split.clone().nth(usize::try_from(l).unwrap()).unwrap().len()+1;
 		}
 		start_idx += usize::try_from(f.url.start_column.as_u64().unwrap()).unwrap();
-		log::debug!("start_idx: {}", start_idx);
 
 		for l in 0..f.url.end_line.as_u64().unwrap()-1 {
 			end_index += split.clone().nth(usize::try_from(l).unwrap()).unwrap().len()+1;
 		}
 		end_index += usize::try_from(f.url.end_column.as_u64().unwrap()).unwrap();
 
-		log::debug!("function: {}", &file_txt[start_idx..end_index-1]);
+		log::debug!("start_idx: {}, end_inx: {}", start_idx, end_index);
+		log::debug!("Get function: {}", &file_txt[start_idx..end_index-1]);
+
 		Some(String::from_str(&file_txt[start_idx..end_index-1]).unwrap())
 
 	}
 
+	/**
+	 Get all the functions by metadata.
+
+	 * v: [`Vec`]<[`Func`]>, which is the functions' metadata got
+	 from CodeQL result.
+	 * return: [`Vec`]<[`String`]>, all the functions' bodies
+	 */
 	fn get_funcs(v: Vec<Func>) -> Vec<String> {
 		let mut ret = Vec::new();
 
@@ -175,13 +250,29 @@ impl CodeQLExtractor {
 		ret
 	}
 
+	/**
+	 Format a function to a [`String`].
+
+	 * f: &[`Func`], which is matadata of the function
+	 * b: [`String`], function block got from the source file
+	 * return: [`String`], the whole function body
+	 */
 	fn format_func(f: &Func, b: String) -> String {
 		return format!("{} {} ({}) {{\n{}}}\n", f.ret_type, f.name, f.parameters, b);
 	}
 
 }
 
+/**
+ Extractor implementation for CodeQL Extractor
+ */
 impl Extractor for CodeQLExtractor {
+	/**
+	 Extract all the functions from a CodeQL database
+	 
+	 return: [`Vec`]<[`String`]>, all the functions extracted from
+	 a CodeQL database
+	 */
 	fn extract_funcs(&self) -> Vec<String> {
 
 		let bqrs_path = self.exec_select_ql();
