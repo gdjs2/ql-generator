@@ -28,6 +28,9 @@ pub struct CodeQLExtractor {
 
 /**
  Function query result for CodeQL
+
+ * block: [`Option`]<[`String`]> is for the function block got
+ from source code
  */
 #[derive(Debug)]
 pub struct Func {
