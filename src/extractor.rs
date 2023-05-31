@@ -1,3 +1,4 @@
+use core::fmt;
 use std::{path::{PathBuf, Path}, process::{Command, Output}, fs::{self, create_dir}, fmt::Debug, str::FromStr};
 
 use serde::{Deserialize, Serialize};
@@ -14,9 +15,7 @@ pub trait Extractor {
 	/**
 	 * Extract all the functions.
 	 */
-	fn extract_funcs(&self) -> Vec<String> {
-		vec![String::from("int main() {}")]
-	}
+	fn extract_funcs(&self) -> Vec<Func>;
 }
 
 /**
@@ -31,11 +30,18 @@ pub struct CodeQLExtractor {
  Function query result for CodeQL
  */
 #[derive(Debug)]
-struct Func {
+pub struct Func {
 	pub ret_type: String,
 	pub name: String,
 	pub parameters: String,
-	pub url: BlockUrl
+	pub url: BlockUrl,
+	pub block: Option<String>
+}
+
+impl fmt::Display for Func {
+	fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+		write!(f, "{} {} ({}) {{\n{}}}\n", self.ret_type, self.name, self.parameters, self.block.clone().unwrap_or(String::from_str("/*Empty*/").unwrap()))
+	}
 }
 
 /**
@@ -49,7 +55,7 @@ struct Func {
 * end_column: The end column of the function block
  */
 #[derive(Serialize, Deserialize, Debug)]
-struct BlockUrl {
+pub struct BlockUrl {
 	uri: String,
 	#[serde(alias = "startLine")]
 	start_line: Number,
@@ -175,11 +181,13 @@ impl CodeQLExtractor {
 		let tuples_value = &parsed_json["#select"]["tuples"];
 
 		for tuple in tuples_value.as_array().unwrap() {
+			let url = serde_json::from_value(tuple[3]["url"].clone()).unwrap();
 			ret.push(Func {
 				ret_type: serde_json::from_value(tuple[0].clone()).unwrap(),
 				name: serde_json::from_value(tuple[1].clone()).unwrap(),
 				parameters: serde_json::from_value(tuple[2].clone()).unwrap(),
-				url: serde_json::from_value(tuple[3]["url"].clone()).unwrap()
+				block: Self::get_fn_block(&url),
+				url
 			});
 		}
 
@@ -197,9 +205,9 @@ impl CodeQLExtractor {
 	 * return: [`Option`]<[`String`]>, the function body
 	 	* [`None`]: if the source file cannot find, i.e., "/"
 	 */
-	fn get_fn(f: &Func) -> Option<String> {
+	fn get_fn_block(url: &BlockUrl) -> Option<String> {
 
-		let parsed_url = Url::parse(&f.url.uri).unwrap();
+		let parsed_url = Url::parse(&url.uri).unwrap();
 		log::debug!("get_fn: {}, {}", parsed_url.scheme(), parsed_url.path());
 
 		if parsed_url.path() == "/" {
@@ -212,53 +220,21 @@ impl CodeQLExtractor {
 		let split = file_txt_dup.split("\n");
 		let mut start_idx = 0;
 		let mut end_index = 0;
-		for l in 0..f.url.start_line.as_u64().unwrap()-1 {
+		for l in 0..url.start_line.as_u64().unwrap()-1 {
 			start_idx += split.clone().nth(usize::try_from(l).unwrap()).unwrap().len()+1;
 		}
-		start_idx += usize::try_from(f.url.start_column.as_u64().unwrap()).unwrap();
+		start_idx += usize::try_from(url.start_column.as_u64().unwrap()).unwrap();
 
-		for l in 0..f.url.end_line.as_u64().unwrap()-1 {
+		for l in 0..url.end_line.as_u64().unwrap()-1 {
 			end_index += split.clone().nth(usize::try_from(l).unwrap()).unwrap().len()+1;
 		}
-		end_index += usize::try_from(f.url.end_column.as_u64().unwrap()).unwrap();
+		end_index += usize::try_from(url.end_column.as_u64().unwrap()).unwrap();
 
 		log::debug!("start_idx: {}, end_inx: {}", start_idx, end_index);
 		log::debug!("Get function: {}", &file_txt[start_idx..end_index-1]);
 
 		Some(String::from_str(&file_txt[start_idx..end_index-1]).unwrap())
 
-	}
-
-	/**
-	 Get all the functions by metadata.
-
-	 * v: [`Vec`]<[`Func`]>, which is the functions' metadata got
-	 from CodeQL result.
-	 * return: [`Vec`]<[`String`]>, all the functions' bodies
-	 */
-	fn get_funcs(v: Vec<Func>) -> Vec<String> {
-		let mut ret = Vec::new();
-
-		for f in &v {
-			let func_txt = CodeQLExtractor::get_fn(f);
-			if func_txt.is_none() {
-				continue;
-			}
-			ret.push(Self::format_func(f, func_txt.unwrap()));
-		}
-
-		ret
-	}
-
-	/**
-	 Format a function to a [`String`].
-
-	 * f: &[`Func`], which is matadata of the function
-	 * b: [`String`], function block got from the source file
-	 * return: [`String`], the whole function body
-	 */
-	fn format_func(f: &Func, b: String) -> String {
-		return format!("{} {} ({}) {{\n{}}}\n", f.ret_type, f.name, f.parameters, b);
 	}
 
 }
@@ -273,7 +249,7 @@ impl Extractor for CodeQLExtractor {
 	 return: [`Vec`]<[`String`]>, all the functions extracted from
 	 a CodeQL database
 	 */
-	fn extract_funcs(&self) -> Vec<String> {
+	fn extract_funcs(&self) -> Vec<Func> {
 
 		let bqrs_path = self.exec_select_ql();
 		let json_path = Path::new(WORK_DIR).join(SELECT_FUN_RESULT_JSON);
@@ -281,9 +257,9 @@ impl Extractor for CodeQLExtractor {
 	
 		let parsed = CodeQLExtractor::parse_result_json(json_path.as_path());
 
-		let ret = CodeQLExtractor::get_funcs(parsed);
-		log::debug!("Extracted functions: {:?}", ret);
+		// let ret = CodeQLExtractor::get_funcs(&parsed);
+		log::debug!("Extracted functions: {:?}", parsed);
 
-		return ret;
+		return parsed;
 	}
 }
