@@ -25,7 +25,7 @@ struct AllocArgs {
 fn main() {
 
 	env_logger::init();
-	
+
 	let _cli = Cli::parse();
 
 	match &_cli.command {
@@ -47,7 +47,7 @@ fn main() {
 				log::info!("[Command Alloc] Function{{ {} }}, Result{{ {} }}", f.name, res);
 			}
 
-			log::info!("[Command Alloc] End asking...");
+			log::info!("[Command Alloc] End asking");
 		}
 	}
 }
