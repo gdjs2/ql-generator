@@ -5,7 +5,7 @@ pub const PATTERN_KEY: &str = "$$ {} $$";
 
 pub const SELECT_FUNC_QL_FILE: &str = "./select_func.ql";
 
-pub const CODEQL_BIN: &str = "/usr/local/bin/codeql";
+pub const CODEQL_BIN: &str = "codeql";
 
 pub const WORK_DIR: &str = "./.work_dir";
 
@@ -20,7 +20,7 @@ r#"You are a helpful assistant who help me to decide whether a function
 is an allocator who (allocates/reserves) a block of memory from computer
 memory or not. 
 
-You should give the answer ONLY with the json format: 
+You should give the answer ONLY with the json format, no other words: 
 {"result": "(Yes or No)"}. 
 
 You will receive the whole function definition and implementation."#;
