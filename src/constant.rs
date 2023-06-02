@@ -1,9 +1,10 @@
 pub const QLS_PATH: &str = "./ql-generator-qls";
+pub const ALLOCATOR_DIR: &str = "./alloc";
 pub const ALLOCATOR_FILE: &str = "./allocator.ql";
 
 pub const PATTERN_KEY: &str = "$${}$$";
 
-pub const SELECT_FUNC_QL_FILE: &str = "./select_func.ql";
+pub const SELECT_FUNC_QL_FILE: &str = "./utils/select_func.ql";
 
 pub const CODEQL_BIN: &str = "codeql";
 

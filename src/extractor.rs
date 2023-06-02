@@ -37,7 +37,6 @@ pub struct Func {
 	pub ret_type: String,
 	pub name: String,
 	pub parameters: String,
-	pub url: BlockUrl,
 	pub block: Option<String>
 }
 
@@ -189,8 +188,7 @@ impl CodeQLExtractor {
 				ret_type: serde_json::from_value(tuple[0].clone()).unwrap(),
 				name: serde_json::from_value(tuple[1].clone()).unwrap(),
 				parameters: serde_json::from_value(tuple[2].clone()).unwrap(),
-				block: Self::get_fn_block(&url),
-				url
+				block: Self::get_fn_block(&url)
 			});
 		}
 

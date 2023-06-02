@@ -1,3 +1,5 @@
+use std::{thread, time::Duration};
+
 use serde::{Serialize, Deserialize};
 use serde_json::Value;
 use ureq::Agent;
@@ -119,10 +121,13 @@ impl Engine for ChatGPTEngine {
 
 		log::debug!("[is_allocator]: res{{{}}}", res);
 
+		thread::sleep(Duration::from_millis(300));
+
 		if res == "Yes" {
 			return true;
 		} else {
 			return false;
 		}
+		
 	}
 }
