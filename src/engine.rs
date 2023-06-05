@@ -16,4 +16,11 @@ pub trait Engine {
     * return: [`bool`], whether it is a allocator or not
     */
     fn is_allocator(&self, f: &Func) -> bool;
+
+    /**
+     Decide whether a function is a deallocator or not.
+
+     * return: [`bool`], whether it is a deallocator or not
+     */
+    fn is_deallocator(&self, f: &Func) -> bool;
 }

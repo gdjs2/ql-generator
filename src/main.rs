@@ -1,7 +1,7 @@
 mod tasks;
 
 use clap::{Args, Parser, Subcommand};
-use tasks::alloc_task;
+use tasks::{alloc_task, dealloc_task};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about)]
@@ -14,12 +14,20 @@ struct Cli {
 enum Commands {
     /// Select all the allocators from the database
     Alloc(AllocArgs),
+    /// Select all the deallocators from the database
+    Dealloc(DeallocArgs)
 }
 
 #[derive(Args)]
 pub struct AllocArgs {
     /// The path to the database
-    db: String,
+    db: String
+}
+
+#[derive(Args)]
+pub struct DeallocArgs {
+    /// The path to the database
+    db: String
 }
 
 fn main() {
@@ -30,6 +38,9 @@ fn main() {
     match &_cli.command {
         Commands::Alloc(args) => {
             alloc_task(args);
+        }
+        Commands::Dealloc(args) => {
+            dealloc_task(args);
         }
     }
 }

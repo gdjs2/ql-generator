@@ -5,7 +5,7 @@ use serde_json::Value;
 use ureq::Agent;
 
 use crate::{
-    constant::{ALLOCATOR_PROMPT, OPENAI_CHAT_COMPLETION_MODEL, OPENAI_CHAT_COMPLETION_URL},
+    constant::{ALLOCATOR_PROMPT, OPENAI_CHAT_COMPLETION_MODEL, OPENAI_CHAT_COMPLETION_URL, DEALLOCATOR_PROMPT},
     extractor::Func,
 };
 
@@ -108,6 +108,38 @@ impl Engine for ChatGPTEngine {
         let res = resp["result"].as_str().unwrap();
 
         log::debug!("[is_allocator]: res{{{}}}", res);
+
+        thread::sleep(Duration::from_millis(300));
+
+        if res == "Yes" {
+            return true;
+        } else {
+            return false;
+        }
+    }
+
+    fn is_deallocator(&self, f: &Func) -> bool {
+        let b = PostBody {
+            model: OPENAI_CHAT_COMPLETION_MODEL.to_string(),
+            temperature: 1.0,
+            messages: vec![
+                Message {
+                    role: "system".to_string(),
+                    content: DEALLOCATOR_PROMPT.to_string(),
+                },
+                Message {
+                    role: "user".to_string(),
+                    content: format!("{}", f),
+                },
+            ],
+        };
+
+        let resp = serde_json::from_str::<Value>(self.post_request(b).as_str().unwrap()).unwrap();
+        log::debug!("[is_deallocator]: resp{{{:?}}}", resp);
+
+        let res = resp["result"].as_str().unwrap();
+
+        log::debug!("[is_deallocator]: res{{{}}}", res);
 
         thread::sleep(Duration::from_millis(300));
 
