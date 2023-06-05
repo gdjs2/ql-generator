@@ -22,3 +22,5 @@ Cargo.lock
 
 /.work_dir
 .vscode/settings.json
+
+.DS_Store
