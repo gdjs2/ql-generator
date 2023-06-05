@@ -3,7 +3,7 @@ use std::path::Path;
 use ql_generator::{
     constant,
     extractor::{Extractor, codeql::CodeQLExtractor},
-    generator::{CodeQLGenerator, Generator}, engine::{chatgpt::ChatGPTEngine, Engine},
+    generator::{codeql::CodeQLGenerator, Generator}, engine::{chatgpt::ChatGPTEngine, Engine},
 };
 
 use crate::AllocArgs;
@@ -43,13 +43,6 @@ pub fn alloc_task(args: &AllocArgs) {
         left_f.len()
     );
 
-    log::info!("[Command Alloc] Generating ql code...");
-    let mut ql_code = String::new();
-    for f in left_f {
-        ql_code.push_str(&format!("\t\tor fun.hasGlobalName(\"{}\")\n", f.name));
-    }
-    log::info!("[Command Alloc] Generated ql:\n{}", ql_code);
-
     log::info!("[Command Alloc] Creating CodeQL Generator...");
     let gen = CodeQLGenerator::new(
         Path::new(constant::QLS_PATH)
@@ -57,9 +50,10 @@ pub fn alloc_task(args: &AllocArgs) {
             .to_str()
             .unwrap(),
         vec![constant::ALLOCATOR_FILE],
+        left_f
     );
 
     log::info!("[Command Alloc] Generating...");
-    gen.gen(Path::new("./tmp"), &vec![ql_code]);
+    gen.gen(Path::new("./tmp"));
     log::info!("[Command Alloc] End generating");
 }
