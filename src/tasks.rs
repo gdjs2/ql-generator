@@ -23,7 +23,7 @@ pub fn alloc_task(args: &AllocArgs) {
     );
     let extractor = CodeQLExtractor::new(args.db.clone());
 
-    // Extract Functions
+    // Extract functions
     log::info!("[Command Alloc] Extracting functions...");
     let funcs = extractor.extract_funcs();
     log::info!(
@@ -67,18 +67,28 @@ pub fn alloc_task(args: &AllocArgs) {
         left_f,
     );
 
+    // Generate the target QL pack
     log::info!("[Command Alloc] Generating...");
     gen.gen(Path::new("./tmp"));
     log::info!("[Command Alloc] End generating");
+
 }
 
+/**
+ The task for generating ql files for allocator selecting.
+
+ * args: &[`AllocArgs`], which is the arguments for allocator task
+ */
 pub fn dealloc_task(args: &DeallocArgs) {
+
+    // Create CodeQL Extractor
     log::info!(
         "[Command Dealloc] Creating CodeQL Extractor using database {}",
         &args.db
     );
     let extractor = CodeQLExtractor::new(args.db.clone());
 
+    // Extract functions 
     log::info!("[Command Dealloc] Extracting functions...");
     let funcs = extractor.extract_funcs();
     log::info!(
@@ -86,10 +96,14 @@ pub fn dealloc_task(args: &DeallocArgs) {
         funcs.len()
     );
 
+    // Create ChatGPT Engine
     log::info!("[Command Dealloc] Creating ChatGPT Engine...");
     let engine = ChatGPTEngine::new(std::env::var("OPENAI_KEY").unwrap());
+
+    // Define the vector for the left functions after asking for Engine
     let mut left_f = Vec::new();
 
+    // Ask for engine
     log::info!("[Command Dealloc] Start asking...");
     for f in &funcs {
         let res = engine.is_deallocator(f);
@@ -107,6 +121,7 @@ pub fn dealloc_task(args: &DeallocArgs) {
         left_f.len()
     );
 
+    // Create CodeQL Generator
     log::info!("[Command Dealloc] Creating CodeQL Generator...");
     let gen = CodeQLGenerator::new(
         Path::new(constant::QLS_PATH)
@@ -117,6 +132,7 @@ pub fn dealloc_task(args: &DeallocArgs) {
         left_f,
     );
 
+    // Generate the target QL pack
     log::info!("[Command Dealloc] Generating...");
     gen.gen(Path::new("./tmp"));
     log::info!("[Command Dealloc] End generating");
