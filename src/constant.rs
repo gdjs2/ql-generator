@@ -1,6 +1,8 @@
 pub const QLS_PATH: &str = "./ql-generator-qls";
 pub const ALLOCATOR_DIR: &str = "./alloc";
+pub const DEALLOCATOR_DIR: &str = "./dealloc";
 pub const ALLOCATOR_FILE: &str = "./allocator.ql";
+pub const DEALLOCATOR_FILE: &str = "./deallocator.ql";
 
 pub const PATTERN_KEY: &str = "$${}$$";
 

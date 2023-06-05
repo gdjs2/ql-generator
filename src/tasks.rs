@@ -2,19 +2,28 @@ use std::path::Path;
 
 use ql_generator::{
     constant,
-    extractor::{Extractor, codeql::CodeQLExtractor},
-    generator::{codeql::CodeQLGenerator, Generator}, engine::{chatgpt::ChatGPTEngine, Engine},
+    engine::{chatgpt::ChatGPTEngine, Engine},
+    extractor::{codeql::CodeQLExtractor, Extractor},
+    generator::{codeql::CodeQLGenerator, Generator},
 };
 
 use crate::{AllocArgs, DeallocArgs};
 
+/**
+ The task for generating ql files for allocator selecting.
+
+ * args: &[`AllocArgs`], which is the arguments for allocator task
+ */
 pub fn alloc_task(args: &AllocArgs) {
+
+    // Create CodeQL Extractor
     log::info!(
         "[Command Alloc] Creating CodeQL Extractor using database {}",
         &args.db
     );
     let extractor = CodeQLExtractor::new(args.db.clone());
 
+    // Extract Functions
     log::info!("[Command Alloc] Extracting functions...");
     let funcs = extractor.extract_funcs();
     log::info!(
@@ -22,10 +31,14 @@ pub fn alloc_task(args: &AllocArgs) {
         funcs.len()
     );
 
+    // Create ChatGPT Engine
     log::info!("[Command Alloc] Creating ChatGPT Engine...");
     let engine = ChatGPTEngine::new(std::env::var("OPENAI_KEY").unwrap());
+
+    // Define the vector for the left functions after asking for Engine
     let mut left_f = Vec::new();
 
+    // Ask for Engine
     log::info!("[Command Alloc] Start asking...");
     for f in &funcs {
         let res = engine.is_allocator(f);
@@ -43,6 +56,7 @@ pub fn alloc_task(args: &AllocArgs) {
         left_f.len()
     );
 
+    // Create the CodeQL Generator
     log::info!("[Command Alloc] Creating CodeQL Generator...");
     let gen = CodeQLGenerator::new(
         Path::new(constant::QLS_PATH)
@@ -50,7 +64,7 @@ pub fn alloc_task(args: &AllocArgs) {
             .to_str()
             .unwrap(),
         vec![constant::ALLOCATOR_FILE],
-        left_f
+        left_f,
     );
 
     log::info!("[Command Alloc] Generating...");
@@ -96,11 +110,11 @@ pub fn dealloc_task(args: &DeallocArgs) {
     log::info!("[Command Dealloc] Creating CodeQL Generator...");
     let gen = CodeQLGenerator::new(
         Path::new(constant::QLS_PATH)
-            .join(constant::ALLOCATOR_DIR)
+            .join(constant::DEALLOCATOR_DIR)
             .to_str()
             .unwrap(),
-        vec![constant::ALLOCATOR_FILE],
-        left_f
+        vec![constant::DEALLOCATOR_FILE],
+        left_f,
     );
 
     log::info!("[Command Dealloc] Generating...");
