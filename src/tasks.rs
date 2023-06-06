@@ -1,10 +1,10 @@
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 use ql_generator::{
     constant,
     engine::{chatgpt::ChatGPTEngine, Engine},
     extractor::{codeql::CodeQLExtractor, Extractor},
-    generator::{codeql::CodeQLGenerator, Generator},
+    generator::{codeql::{CodeQLGenerator, Pts}, Generator},
 };
 
 use crate::{AllocArgs, DeallocArgs};
@@ -56,6 +56,13 @@ pub fn alloc_task(args: &AllocArgs) {
         left_f.len()
     );
 
+    // Generate QL Code
+    log::info!("[Command Alloc] Creating CodeQL Code...");
+    let mut ql = String::new();
+    for f in left_f {
+        ql.push_str(&format!("\t\tor fun.hasGlobalName(\" {} \")\n", f.name));
+    }
+
     // Create the CodeQL Generator
     log::info!("[Command Alloc] Creating CodeQL Generator...");
     let gen = CodeQLGenerator::new(
@@ -63,8 +70,10 @@ pub fn alloc_task(args: &AllocArgs) {
             .join(constant::ALLOCATOR_DIR)
             .to_str()
             .unwrap(),
-        vec![constant::ALLOCATOR_FILE],
-        left_f,
+        vec![Pts {
+            f: PathBuf::new().join(constant::ALLOCATOR_FILE),
+            s: ql
+        }]
     );
 
     // Generate the target QL pack
@@ -122,18 +131,28 @@ pub fn dealloc_task(args: &DeallocArgs) {
     );
 
     // Create CodeQL Generator
-    log::info!("[Command Dealloc] Creating CodeQL Generator...");
+    // Generate QL Code
+    log::info!("[Command Dealloc] Creating CodeQL Code...");
+    let mut ql = String::new();
+    for f in left_f {
+        ql.push_str(&format!("\t\tor fun.hasGlobalName(\" {} \")\n", f.name));
+    }
+
+    // Create the CodeQL Generator
+    log::info!("[Command Alloc] Creating CodeQL Generator...");
     let gen = CodeQLGenerator::new(
         Path::new(constant::QLS_PATH)
-            .join(constant::DEALLOCATOR_DIR)
+            .join(constant::ALLOCATOR_DIR)
             .to_str()
             .unwrap(),
-        vec![constant::DEALLOCATOR_FILE],
-        left_f,
+        vec![Pts {
+            f: PathBuf::new().join(constant::DEALLOCATOR_FILE),
+            s: ql
+        }]
     );
 
     // Generate the target QL pack
-    log::info!("[Command Dealloc] Generating...");
+    log::info!("[Command Alloc] Generating...");
     gen.gen(Path::new("./tmp"));
-    log::info!("[Command Dealloc] End generating");
+    log::info!("[Command Alloc] End generating");
 }
