@@ -60,7 +60,7 @@ pub fn alloc_task(args: &AllocArgs) {
     log::info!("[Command Alloc] Creating CodeQL Code...");
     let mut ql = String::new();
     for f in left_f {
-        ql.push_str(&format!("\t\tor fun.hasGlobalName(\" {} \")\n", f.name));
+        ql.push_str(&format!("\t\tor fun.hasGlobalName(\"{}\")\n", f.name));
     }
 
     // Create the CodeQL Generator
@@ -135,14 +135,14 @@ pub fn dealloc_task(args: &DeallocArgs) {
     log::info!("[Command Dealloc] Creating CodeQL Code...");
     let mut ql = String::new();
     for f in left_f {
-        ql.push_str(&format!("\t\tor fun.hasGlobalName(\" {} \")\n", f.name));
+        ql.push_str(&format!("\t\tor fun.hasGlobalName(\"{}\")\n", f.name));
     }
 
     // Create the CodeQL Generator
-    log::info!("[Command Alloc] Creating CodeQL Generator...");
+    log::info!("[Command Dealloc] Creating CodeQL Generator...");
     let gen = CodeQLGenerator::new(
         Path::new(constant::QLS_PATH)
-            .join(constant::ALLOCATOR_DIR)
+            .join(constant::DEALLOCATOR_DIR)
             .to_str()
             .unwrap(),
         vec![Pts {
@@ -152,7 +152,7 @@ pub fn dealloc_task(args: &DeallocArgs) {
     );
 
     // Generate the target QL pack
-    log::info!("[Command Alloc] Generating...");
+    log::info!("[Command Dealloc] Generating...");
     gen.gen(Path::new("./tmp"));
-    log::info!("[Command Alloc] End generating");
+    log::info!("[Command Dealloc] End generating");
 }

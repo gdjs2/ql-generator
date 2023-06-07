@@ -1,7 +1,7 @@
 use std::{
     fs,
     path::{Path, PathBuf},
-    process::Command,
+    process::{Command, Output}, io,
 };
 
 use fs_extra::dir::{copy, CopyOptions};
@@ -10,8 +10,15 @@ use crate::constant;
 
 use super::Generator;
 
+/**
+This is a replace point, which contains a file to be 
+replaced in the pack and another string to be replaced
+at the replace point.
+ */
 pub struct Pts {
+    // The path to the file to be replaced
     pub f: PathBuf,
+    // The string used to replace at the point
     pub s: String
 }
 
@@ -22,7 +29,7 @@ for analyzing vulnerabilities.
 pub struct CodeQLGenerator {
     // The directory to store the CoedQL pack
     ql_dir: PathBuf,
-    // The file to be replaced for [idx]th replace point
+    // The vector of all the replace points
     v: Vec<Pts>,
 }
 
@@ -35,33 +42,14 @@ impl CodeQLGenerator {
 
     * ql_dir_s: &[`str`] The string of the path to the original codeql
     pack directory
-    * replace_pts_s: [`Vec`]<&[`str`]> A vector stores all the files' paths
-    to be replaced by the genereator
-    * funcs: [`Vec`]<&[`Func`]> A vector stores all the
+    * v: [`Vec`]<[`Pts`]> A vector of all the replace points. 
     */
     pub fn new(ql_dir_s: &str, v: Vec<Pts>) -> Self {
         let ql_dir = PathBuf::new().join(ql_dir_s);
         CodeQLGenerator { ql_dir, v }
     }
-}
 
-impl Generator for CodeQLGenerator {
-    fn gen(&self, p: &Path) {
-        log::debug!(
-            "[CodeQL Generator][gen()] Initializing pack at {{ {} }}",
-            p.to_str().unwrap()
-        );
-
-        let opt = Command::new(constant::CODEQL_BIN)
-            .args([
-                "pack",
-                "init",
-                "--dir=.",
-                format!("tmp/{}", self.ql_dir.file_name().unwrap().to_str().unwrap()).as_str(),
-            ])
-            .current_dir(&p)
-            .output();
-
+    pub fn parse_output(opt: io::Result<Output>) {
         if let Ok(o) = opt {
             log::debug!(
                 "Execute codeql init stdout: {}",
@@ -74,15 +62,47 @@ impl Generator for CodeQLGenerator {
         } else {
             opt.unwrap();
         }
+    }
+}
 
+/**
+Generator implementation for CodeQL Generator.
+ */
+impl Generator for CodeQLGenerator {
+
+    /**
+    Implementation of generating function.
+
+    * p: &[`Path`] the directory to generate the
+    CodeQL pack
+     */
+    fn gen(&self, p: &Path) {
+
+        // Initialize the package at the target directory
         log::debug!(
-            "[CodeQL Generator][gen()] Copy QL directory from {{{:?}}} to {{{:?}}}",
+            "[CodeQL Generator][gen()] Initializing pack at {{ {} }}",
+            p.to_str().unwrap()
+        );
+        let opt = Command::new(constant::CODEQL_BIN)
+            .args([
+                "pack",
+                "init",
+                "--dir=.",
+                format!("tmp/{}", self.ql_dir.file_name().unwrap().to_str().unwrap()).as_str(),
+            ])
+            .current_dir(&p)
+            .output();
+        Self::parse_output(opt);
+
+        // Copy template QL pack to the target directory
+        log::debug!(
+            "[CodeQL Generator][gen()] Copy QL directory from {{ {:?} }} to {{ {:?} }}",
             self.ql_dir,
             p
         );
         let ops = CopyOptions::new().overwrite(true);
         let res = copy(&self.ql_dir, p, &ops);
-        log::debug!("[CodeQL Generator][gen()] Copy Result {{{:?}}}", res);
+        log::debug!("[CodeQL Generator][gen()] Copy Result {{ {:?} }}", res);
 
         let tar_dir = PathBuf::new()
             .join(p)
@@ -92,6 +112,7 @@ impl Generator for CodeQLGenerator {
             tar_dir
         );
 
+        // Generate QL files
         log::debug!("[CodeQL Generator][gen()] Start generating qls...");
         let mut idx = 0;
         for p in &self.v {
@@ -118,36 +139,14 @@ impl Generator for CodeQLGenerator {
             .args(["pack", "add", "codeql/cpp-all"])
             .current_dir(&tar_dir)
             .output();
+        Self::parse_output(opt);
 
-        if let Ok(o) = opt {
-            log::debug!(
-                "Execute codeql add cpp-all stdout: {}",
-                String::from_utf8(o.stdout).unwrap()
-            );
-            log::debug!(
-                "Execute codeql add cpp-all stderr: {}",
-                String::from_utf8(o.stderr).unwrap()
-            );
-        } else {
-            opt.unwrap();
-        }
-
+        // Install QL pack dependency
         let opt = Command::new(constant::CODEQL_BIN)
             .args(["pack", "install"])
             .current_dir(&tar_dir)
             .output();
-
-        if let Ok(o) = opt {
-            log::debug!(
-                "Execute codeql pack install stdout: {}",
-                String::from_utf8(o.stdout).unwrap()
-            );
-            log::debug!(
-                "Execute codeql pack install stderr: {}",
-                String::from_utf8(o.stderr).unwrap()
-            );
-        } else {
-            opt.unwrap();
-        }
+        Self::parse_output(opt);
+        
     }
 }
