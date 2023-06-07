@@ -4,18 +4,20 @@ use ql_generator::{
     constant,
     engine::{chatgpt::ChatGPTEngine, Engine},
     extractor::{codeql::CodeQLExtractor, Extractor},
-    generator::{codeql::{CodeQLGenerator, Pts}, Generator},
+    generator::{
+        codeql::{CodeQLGenerator, Pts},
+        Generator,
+    },
 };
 
 use crate::{AllocArgs, DeallocArgs};
 
 /**
- The task for generating ql files for allocator selecting.
+The task for generating ql files for allocator selecting.
 
- * args: &[`AllocArgs`], which is the arguments for allocator task
- */
+* args: &[`AllocArgs`], which is the arguments for allocator task
+*/
 pub fn alloc_task(args: &AllocArgs) {
-
     // Create CodeQL Extractor
     log::info!(
         "[Command Alloc] Creating CodeQL Extractor using database {}",
@@ -72,24 +74,22 @@ pub fn alloc_task(args: &AllocArgs) {
             .unwrap(),
         vec![Pts {
             f: PathBuf::new().join(constant::ALLOCATOR_FILE),
-            s: ql
-        }]
+            s: ql,
+        }],
     );
 
     // Generate the target QL pack
     log::info!("[Command Alloc] Generating...");
     gen.gen(Path::new("./tmp"));
     log::info!("[Command Alloc] End generating");
-
 }
 
 /**
- The task for generating ql files for allocator selecting.
+The task for generating ql files for allocator selecting.
 
- * args: &[`AllocArgs`], which is the arguments for allocator task
- */
+* args: &[`AllocArgs`], which is the arguments for allocator task
+*/
 pub fn dealloc_task(args: &DeallocArgs) {
-
     // Create CodeQL Extractor
     log::info!(
         "[Command Dealloc] Creating CodeQL Extractor using database {}",
@@ -97,7 +97,7 @@ pub fn dealloc_task(args: &DeallocArgs) {
     );
     let extractor = CodeQLExtractor::new(args.db.clone());
 
-    // Extract functions 
+    // Extract functions
     log::info!("[Command Dealloc] Extracting functions...");
     let funcs = extractor.extract_funcs();
     log::info!(
@@ -147,8 +147,8 @@ pub fn dealloc_task(args: &DeallocArgs) {
             .unwrap(),
         vec![Pts {
             f: PathBuf::new().join(constant::DEALLOCATOR_FILE),
-            s: ql
-        }]
+            s: ql,
+        }],
     );
 
     // Generate the target QL pack

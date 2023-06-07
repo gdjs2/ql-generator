@@ -12,7 +12,7 @@ for extracting all the functions.
  */
 pub trait Extractor {
     /**
-     * Extract all the functions.
+    Extract all the functions.
      */
     fn extract_funcs(&self) -> Vec<Func>;
 }
