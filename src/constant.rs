@@ -5,10 +5,14 @@ pub const QLS_PATH: &str = "./ql-generator-qls";
 pub const ALLOCATOR_DIR: &str = "./alloc";
 // Dealloc Task directory
 pub const DEALLOCATOR_DIR: &str = "./dealloc";
+// UAF Task directory
+pub const UAF_DIR: &str = "./uaf";
 // QL file for selecting all the allocators
 pub const ALLOCATOR_FILE: &str = "./allocator.ql";
 // QL file for selecting all the deallocators
 pub const DEALLOCATOR_FILE: &str = "./deallocator.ql";
+// QL file for selecting all the UAF
+pub const UAF_FILE: &str = "./UseAfterFreeLib.qll";
 
 // Pattern key in the pattern ql files
 pub const PATTERN_KEY: &str = "$${}$$";
@@ -63,10 +67,11 @@ deallocation as well. For example, in free(void *ptr), the index number
 is 0, because the free function will deallocate the memory in ptr. Index
 field is -1 if the result is No.
 
-You should give the answer ONLY with the json format, no other words: 
+PLEASE GIVE the ANSWER ONLY BY THE JSON FORMAT, no any other words: 
+
 {
 	"result": "(Yes or No)"
-	"index": "(index here, from 0)"
+	"index": (index here, from 0, a number)
 } 
 
 You will receive the whole function definition and implementation."#;

@@ -166,7 +166,9 @@ impl Engine for ChatGPTEngine {
             ],
         };
 
-        let resp = serde_json::from_str::<Value>(self.post_request(b).as_str().unwrap()).unwrap();
+        let tmp = self.post_request(b).to_owned();
+        log::debug!("[is_deallocator_and_idx]: tmp{{ {:?} }}", tmp);
+        let resp = serde_json::from_str::<Value>(tmp.as_str().unwrap().split("\n\n").nth(0).unwrap()).unwrap();
         log::debug!("[is_deallocator_and_idx]: resp{{ {:?} }}", resp);
 
         let res = resp["result"].as_str().unwrap();

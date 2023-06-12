@@ -1,7 +1,7 @@
 mod tasks;
 
 use clap::{Args, Parser, Subcommand};
-use tasks::{alloc_task, dealloc_task};
+use tasks::{alloc_task, dealloc_task, use_after_free_task};
 
 #[derive(Parser)]
 #[command(author, version, about, long_about)]
@@ -15,7 +15,9 @@ enum Commands {
     /// Select all the allocators from the database
     Alloc(AllocArgs),
     /// Select all the deallocators from the database
-    Dealloc(DeallocArgs)
+    Dealloc(DeallocArgs),
+    /// Detect UAF vulnerabilities
+    UAF(UseAfterFreeArgs)
 }
 
 #[derive(Args)]
@@ -47,6 +49,9 @@ fn main() {
         }
         Commands::Dealloc(args) => {
             dealloc_task(args);
+        }
+        Commands::UAF(args) => {
+            use_after_free_task(args);
         }
     }
 }

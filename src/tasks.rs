@@ -1,4 +1,7 @@
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use ql_generator::{
     constant,
@@ -168,10 +171,7 @@ pub fn use_after_free_task(args: &UseAfterFreeArgs) {
     // Extract functions
     log::info!("[Command UAF] Extracting functions...");
     let funcs = extractor.extract_funcs();
-    log::info!(
-        "[Command UAF] Extracted {} functions in total",
-        funcs.len()
-    );
+    log::info!("[Command UAF] Extracted {} functions in total", funcs.len());
 
     // Create ChatGPT Engine
     log::info!("[Command UAF] Creating ChatGPT Engine...");
@@ -196,10 +196,7 @@ pub fn use_after_free_task(args: &UseAfterFreeArgs) {
             idx
         );
     }
-    log::info!(
-        "[Command UAF] End asking, {} functions left",
-        left_f.len()
-    );
+    log::info!("[Command UAF] End asking, {} functions left", left_f.len());
 
     let mut v = Vec::new();
     let mut i = 0;
@@ -211,26 +208,77 @@ pub fn use_after_free_task(args: &UseAfterFreeArgs) {
         }
     }
 
-
+    v.sort_by(|a, b| a.1.cmp(&b.1));
 
     // Create CodeQL Generator
     // Generate QL Code
     log::info!("[Command UAF] Creating CodeQL Code...");
-    let mut ql = String::new();
-    let mut ql_v = Vec::new();
-    for f in left_f {
-        ql.push_str(&format!("\t\tor fun.hasGlobalName(\"{}\")\n", f.name));
+    let mut ql = String::from_str("(\n(\n").unwrap();
+    i = 0;
+    loop {
+        let e = &v[i];
+        if i == 0 {
+            ql.push_str(format!("fc.getTarget().hasGlobalOrStdName(\"{}\") ", e.0.name).as_str());
+            if i != v.len() - 1 {
+                let next = &v[i + 1];
+                if e.1 == next.1 {
+                    ql.push_str("or\n");
+                } else {
+                    if e.1 != -1 {
+                        ql.push_str(format!(") and \nva = fc.getArgument({})\n) ", e.1).as_str());
+                    } else {
+                        ql.push_str(")\n) or\n");
+                    }
+                }
+            } else {
+                if e.1 != -1 {
+                    ql.push_str(format!(") and \nva = fc.getArgument({})\n) ", e.1).as_str());
+                } else {
+                    ql.push_str(")\n)\n");
+                }
+            }
+        } else {
+            let last = &v[i - 1];
+            if e.1 != last.1 {
+                ql.push_str("(\n(\n");
+            }
+
+            ql.push_str(format!("fc.getTarget().hasGlobalOrStdName(\"{}\") ", e.0.name).as_str());
+            if i != v.len() - 1 {
+                let next = &v[i + 1];
+                if e.1 == next.1 {
+                    ql.push_str("or\n");
+                } else {
+                    if e.1 != -1 {
+                        ql.push_str(format!(") and \nva = fc.getArgument({})\n) ", e.1).as_str());
+                    } else {
+                        ql.push_str(")\n) or\n");
+                    }
+                }
+            } else {
+                if e.1 != -1 {
+                    ql.push_str(format!(") and \nva = fc.getArgument({})\n) ", e.1).as_str());
+                } else {
+                    ql.push_str(")\n)\n");
+                }
+            }
+            
+        }
+        i += 1;
+        if i == v.len() {
+            break;
+        }
     }
 
     // Create the CodeQL Generator
     log::info!("[Command UAF] Creating CodeQL Generator...");
     let gen = CodeQLGenerator::new(
         Path::new(constant::QLS_PATH)
-            .join(constant::DEALLOCATOR_DIR)
+            .join(constant::UAF_DIR)
             .to_str()
             .unwrap(),
         vec![Pts {
-            f: PathBuf::new().join(constant::DEALLOCATOR_FILE),
+            f: PathBuf::new().join(constant::UAF_FILE),
             s: ql,
         }],
     );
