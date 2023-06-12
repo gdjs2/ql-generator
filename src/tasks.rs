@@ -10,7 +10,7 @@ use ql_generator::{
     },
 };
 
-use crate::{AllocArgs, DeallocArgs};
+use crate::{AllocArgs, DeallocArgs, UseAfterFreeArgs};
 
 /**
 The task for generating ql files for allocator selecting.
@@ -155,4 +155,88 @@ pub fn dealloc_task(args: &DeallocArgs) {
     log::info!("[Command Dealloc] Generating...");
     gen.gen(Path::new("./tmp"));
     log::info!("[Command Dealloc] End generating");
+}
+
+pub fn use_after_free_task(args: &UseAfterFreeArgs) {
+    // Create CodeQL Extractor
+    log::info!(
+        "[Command UAF] Creating CodeQL Extractor using database {}",
+        &args.db
+    );
+    let extractor = CodeQLExtractor::new(args.db.clone());
+
+    // Extract functions
+    log::info!("[Command UAF] Extracting functions...");
+    let funcs = extractor.extract_funcs();
+    log::info!(
+        "[Command UAF] Extracted {} functions in total",
+        funcs.len()
+    );
+
+    // Create ChatGPT Engine
+    log::info!("[Command UAF] Creating ChatGPT Engine...");
+    let engine = ChatGPTEngine::new(std::env::var("OPENAI_KEY").unwrap());
+
+    // Define the vector for the left functions after asking for Engine
+    let mut left_f = Vec::new();
+    let mut idx_v = Vec::new();
+
+    // Ask for engine
+    log::info!("[Command UAF] Start asking...");
+    for f in &funcs {
+        let (res, idx) = engine.is_deallocator_and_idx(f);
+        if res {
+            left_f.push(f);
+            idx_v.push(idx);
+        }
+        log::info!(
+            "[Command UAF] Function{{ {} }}, Result{{ {} }}. Index {{ {} }}",
+            f.name,
+            res,
+            idx
+        );
+    }
+    log::info!(
+        "[Command UAF] End asking, {} functions left",
+        left_f.len()
+    );
+
+    let mut v = Vec::new();
+    let mut i = 0;
+    loop {
+        v.push((left_f[i], idx_v[i]));
+        i += 1;
+        if i == idx_v.len() {
+            break;
+        }
+    }
+
+
+
+    // Create CodeQL Generator
+    // Generate QL Code
+    log::info!("[Command UAF] Creating CodeQL Code...");
+    let mut ql = String::new();
+    let mut ql_v = Vec::new();
+    for f in left_f {
+        ql.push_str(&format!("\t\tor fun.hasGlobalName(\"{}\")\n", f.name));
+    }
+
+    // Create the CodeQL Generator
+    log::info!("[Command UAF] Creating CodeQL Generator...");
+    let gen = CodeQLGenerator::new(
+        Path::new(constant::QLS_PATH)
+            .join(constant::DEALLOCATOR_DIR)
+            .to_str()
+            .unwrap(),
+        vec![Pts {
+            f: PathBuf::new().join(constant::DEALLOCATOR_FILE),
+            s: ql,
+        }],
+    );
+
+    // Generate the target QL pack
+    log::info!("[Command UAF] Generating...");
+    gen.gen(Path::new("./tmp"));
+    log::info!("[Command UAF] End generating");
 }

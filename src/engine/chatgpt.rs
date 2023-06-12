@@ -5,7 +5,7 @@ use serde_json::Value;
 use ureq::Agent;
 
 use crate::{
-    constant::{ALLOCATOR_PROMPT, OPENAI_CHAT_COMPLETION_MODEL, OPENAI_CHAT_COMPLETION_URL, DEALLOCATOR_PROMPT},
+    constant::{ALLOCATOR_PROMPT, OPENAI_CHAT_COMPLETION_MODEL, OPENAI_CHAT_COMPLETION_URL, DEALLOCATOR_PROMPT, DEALLOCATOR_ARG_PROMPT},
     extractor::Func,
 };
 
@@ -103,11 +103,11 @@ impl Engine for ChatGPTEngine {
         };
 
         let resp = serde_json::from_str::<Value>(self.post_request(b).as_str().unwrap()).unwrap();
-        log::debug!("[is_allocator]: resp{{{:?}}}", resp);
+        log::debug!("[is_allocator]: resp{{ {:?} }}", resp);
 
         let res = resp["result"].as_str().unwrap();
 
-        log::debug!("[is_allocator]: res{{{}}}", res);
+        log::debug!("[is_allocator]: res{{ {} }}", res);
 
         thread::sleep(Duration::from_millis(300));
 
@@ -135,11 +135,11 @@ impl Engine for ChatGPTEngine {
         };
 
         let resp = serde_json::from_str::<Value>(self.post_request(b).as_str().unwrap()).unwrap();
-        log::debug!("[is_deallocator]: resp{{{:?}}}", resp);
+        log::debug!("[is_deallocator]: resp{{ {:?} }}", resp);
 
         let res = resp["result"].as_str().unwrap();
 
-        log::debug!("[is_deallocator]: res{{{}}}", res);
+        log::debug!("[is_deallocator]: res{{ {} }}", res);
 
         thread::sleep(Duration::from_millis(300));
 
@@ -147,6 +147,39 @@ impl Engine for ChatGPTEngine {
             return true;
         } else {
             return false;
+        }
+    }
+
+    fn is_deallocator_and_idx(&self, f: &Func) -> (bool, i64) {
+        let b = PostBody {
+            model: OPENAI_CHAT_COMPLETION_MODEL.to_string(),
+            temperature: 1.0,
+            messages: vec![
+                Message {
+                    role: "system".to_string(),
+                    content: DEALLOCATOR_ARG_PROMPT.to_string(),
+                },
+                Message {
+                    role: "user".to_string(),
+                    content: format!("{}", f),
+                },
+            ],
+        };
+
+        let resp = serde_json::from_str::<Value>(self.post_request(b).as_str().unwrap()).unwrap();
+        log::debug!("[is_deallocator_and_idx]: resp{{ {:?} }}", resp);
+
+        let res = resp["result"].as_str().unwrap();
+        let idx = resp["index"].as_i64().unwrap();
+
+        log::debug!("[is_deallocator_and_idx]: res{{ {} }}", res);
+
+        thread::sleep(Duration::from_millis(300));
+
+        if res == "Yes" {
+            return (true, idx);
+        } else {
+            return (false, idx);
         }
     }
 }

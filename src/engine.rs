@@ -23,4 +23,6 @@ pub trait Engine {
      * return: [`bool`], whether it is a deallocator or not
      */
     fn is_deallocator(&self, f: &Func) -> bool;
+
+    fn is_deallocator_and_idx(&self, f: &Func) -> (bool, i64);
 }

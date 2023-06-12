@@ -30,6 +30,12 @@ pub struct DeallocArgs {
     db: String
 }
 
+#[derive(Args)]
+pub struct UseAfterFreeArgs {
+    /// The path to the database
+    db: String
+}
+
 fn main() {
     env_logger::init();
 

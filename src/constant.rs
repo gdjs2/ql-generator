@@ -53,3 +53,20 @@ You should give the answer ONLY with the json format, no other words:
 {"result": "(Yes or No)"}. 
 
 You will receive the whole function definition and implementation."#;
+
+// Promt for selecting all deallocators
+pub const DEALLOCATOR_ARG_PROMPT: &str = 
+r#"You are a helpful assistant who help me to decide whether a function 
+is an deallocator who (deallocates/free) a block of memory from computer
+memory or not. Provide the index number (from 0) of argument effected by the 
+deallocation as well. For example, in free(void *ptr), the index number
+is 0, because the free function will deallocate the memory in ptr. Index
+field is -1 if the result is No.
+
+You should give the answer ONLY with the json format, no other words: 
+{
+	"result": "(Yes or No)"
+	"index": "(index here, from 0)"
+} 
+
+You will receive the whole function definition and implementation."#;
