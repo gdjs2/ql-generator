@@ -63,22 +63,25 @@ impl ChatGPTEngine {
     * b: [`PostBody`], the body should be posted
     */
     fn post_request(&self, b: PostBody) -> Value {
-        log::debug!("[CodeQL Engine] send request: {:?}", &b);
+        loop {
+            log::debug!("[CodeQL Engine] send request: {:?}", &b);
 
-        let rep = self
-            .agent
-            .post(OPENAI_CHAT_COMPLETION_URL)
-            .set("Content-Type", "application/json")
-            .set(
-                "Authorization",
-                format!("Bearer {}", self.api_token.as_str()).as_str(),
-            )
-            .send_json(b)
-            .unwrap();
+            let rep = self
+                .agent
+                .post(OPENAI_CHAT_COMPLETION_URL)
+                .set("Content-Type", "application/json")
+                .set(
+                    "Authorization",
+                    format!("Bearer {}", self.api_token.as_str()).as_str(),
+                )
+                .send_json(&b)
+                .unwrap();
 
-        log::debug!("[CodeQL Engine] receive response: {:?}", &rep);
-
-        rep.into_json::<Value>().unwrap()["choices"][0]["message"]["content"].clone()
+            log::debug!("[CodeQL Engine] receive response: {:?}", &rep);
+            if rep.status() == 200 {
+                break rep.into_json::<Value>().unwrap()["choices"][0]["message"]["content"].clone();
+            }
+        }
     }
 }
 
